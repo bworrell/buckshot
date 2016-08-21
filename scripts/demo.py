@@ -7,7 +7,8 @@ from __future__ import print_function
 import time
 import fractions
 
-from buckshot import distributed
+from buckshot.contexts import distributed
+from buckshot.decorators import distribute
 
 
 def harmonic_sum(x):
@@ -15,6 +16,11 @@ def harmonic_sum(x):
     for x in xrange(1, x + 1):
         hsum += fractions.Fraction(1, x)
     return hsum
+
+
+@distribute
+def distributed_harmonic_sum(x):
+    return harmonic_sum(x)
 
 
 def run_single(values):
@@ -41,6 +47,16 @@ def run_multi(values):
     return results
 
 
+def run_distribute(values):
+    print("Starting multi-process run via @distribute...")
+
+    multi_process_time = time.time()
+    results = list(distributed_harmonic_sum(values))
+
+    print("Multi process via @distribute: %s" % (time.time() - multi_process_time))
+    return results
+
+
 def main():
     values = range(500, 1, -1)
 
@@ -49,10 +65,17 @@ def main():
 
     print()
 
-    # Generate the harmonc sum for each value in values over multiple processes.
+    # Generate the harmonic sum for each value in values over multiple processes.
     r2 = run_multi(values)
 
-    assert sorted(r1) == sorted(r2)
+    print()
+
+    # Generate the harmonic sum for each value in values using the @distrubute
+    # decorated function.
+
+    r3 = run_distribute(values)
+
+    assert sorted(r1) == sorted(r2) == sorted(r3)
 
 if __name__ == "__main__":
     main()
