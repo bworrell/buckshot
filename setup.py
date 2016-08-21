@@ -33,7 +33,7 @@ extras_require = {
 
 setuptools.setup(
     name="buckshot",
-    description="Give your application a break.",
+    description="Scatters tasks across processes.",
     author="Bryan Worrell",
     author_email="bworrell@notmyemail.com",
     url="https://github.com/bworrell",
