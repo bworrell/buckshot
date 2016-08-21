@@ -38,9 +38,6 @@ Right now there is only really two components of ``buckshot`` worth using:
     from buckshot import distributed
 
     def harmonic_sum(x)
-        """Generate the harmonic sum of `x`. This is super ineffecient
-        and expensive for remotely-large values of `x`.
-        """
         F = fractions.Fraction
         return sum(F(1, d) for d in xrange(1, x + 1))
 
@@ -64,16 +61,13 @@ Another way of writing the above code is using the ``distribute`` decorator:
 
     from buckshot import distribute
 
-    @distribute(processes=4)
+    @distribute(processes=4)  # <-- Added the decorator
     def harmonic_sum(x)
-        """Generate the harmonic sum of `x`. This is super ineffecient
-        and expensive for remotely-large values of `x`.
-        """
         F = fractions.Fraction
         return sum(F(1, d) for d in xrange(1, x + 1))
 
     # The harmonic_sum(...) function has been rewritten as a generator
-    # which levagaes the ``distributed`` context manager underneath to
+    # which leverages the `distributed` context manager underneath to
     # pass values from the input iterable to worker processes.
     for result in harmonic_sum(xrange(1, 100)):
         print result
