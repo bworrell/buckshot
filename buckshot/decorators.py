@@ -39,10 +39,13 @@ def distribute(processes):
     """
     def decorator(func):
         @functools.wraps(func)
-        def inner(iterable):
+        def inner(*args):
+            iterable = args[-1]  # Kind of a hack to work with instance methods.
+
             with distributed(func, processes) as mapfunc:
                 for result in mapfunc(iterable):
                     yield result
+
         return inner
 
     if callable(processes):
