@@ -22,7 +22,11 @@ design (e.g., using ``with`` for process creation and teardown).
 Installation
 ------------
 
-Coming soon...
+The easiest way to install ``buckshot`` is via ``pip``:
+
+::
+
+    $ pip install buckshot
 
 
 Usage
