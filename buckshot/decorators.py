@@ -40,12 +40,12 @@ def distribute(processes):
     def decorator(func):
         @functools.wraps(func)
         def inner(iterable):
-            with distributed(func, size) as mapfunc:
+            with distributed(func, processes) as mapfunc:
                 for result in mapfunc(iterable):
                     yield result
         return inner
 
     if callable(processes):
-        func, size = processes, None
+        func, processes = processes, None
         return decorator(func)
     return decorator
