@@ -14,6 +14,7 @@ import multiprocessing
 import Queue
 
 from buckshot import logutils
+from buckshot import procutils
 from buckshot.listener import Listener
 
 LOG = logging.getLogger(__name__)
@@ -127,6 +128,7 @@ class distributed(object):
         except KeyError:
             LOG.warning("Attempted to unregister missing pid: %s", pid)
 
+    @procutils.suppress(signal.SIGCHLD)
     def _kill_subprocesses(self, *args, **kwargs):
         """Handle any SIGCHLD signals by attempting to kill all spawned
         processes.
@@ -136,8 +138,6 @@ class distributed(object):
         Raises:
             RuntimeError: If a SIGCHLD signal was caught during processing.
         """
-        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
         for pid in self._process_map.keys():
             LOG.debug("Killing subprocess %s.", pid)
             os.kill(pid, signal.SIGTERM)
@@ -147,7 +147,5 @@ class distributed(object):
         # If a SIGCHLD signal occurred during processes, raise a RuntimeError.
         if args or kwargs:
             raise RuntimeError("SIGCHLD occurred")
-
-
 
 
