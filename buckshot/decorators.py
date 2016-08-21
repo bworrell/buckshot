@@ -28,7 +28,6 @@ def distribute(processes):
     process.
 
     Example:
-    >>>
     >>> @distribute(processes=4)
     ... def foo(x):
     ...     return expensive_calulation(x) + another_expensive_calculation(x)
