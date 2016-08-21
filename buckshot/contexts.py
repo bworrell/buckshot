@@ -15,6 +15,7 @@ import Queue
 
 from buckshot import logutils
 from buckshot import procutils
+from buckshot import constants
 from buckshot.listener import Listener
 
 LOG = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class distributed(object):
 
     def __init__(self, func, processes=None):
         self._func = func
-        self._size = processes or multiprocessing.cpu_count()
+        self._size = processes or constants.CPU_COUNT
         self._process_map = {}
         self._in_queue = None
         self._out_queue = None
@@ -57,10 +58,6 @@ class distributed(object):
             input_queue=self._in_queue,
             output_queue=self._out_queue
         )
-
-        # If any of our child processes are killed or die unexpectedly,
-        # abort. TODO: Make this more durable.
-        signal.signal(signal.SIGCHLD, self._kill_subprocesses)
 
         for _ in range(self._size):
             process = multiprocessing.Process(target=listener)
@@ -129,7 +126,7 @@ class distributed(object):
             LOG.warning("Attempted to unregister missing pid: %s", pid)
 
     @procutils.suppress(signal.SIGCHLD)
-    def _kill_subprocesses(self, *args, **kwargs):
+    def _kill_subprocesses(self):
         """Handle any SIGCHLD signals by attempting to kill all spawned
         processes.
 
@@ -142,10 +139,5 @@ class distributed(object):
             LOG.debug("Killing subprocess %s.", pid)
             os.kill(pid, signal.SIGTERM)
             self._unregister_process(pid)
-
-        # FIXME: Make this better.
-        # If a SIGCHLD signal occurred during processes, raise a RuntimeError.
-        if args or kwargs:
-            raise RuntimeError("SIGCHLD occurred")
 
 
