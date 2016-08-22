@@ -60,7 +60,7 @@ class Listener(object):
         while True:
             try:
                 worker_args = self._recv()
-                retval = self._func(*(worker_args,))  # This is kinda ugly...
+                retval = self._func(*worker_args)
             except Suicide:
                 return
             except Exception as ex:

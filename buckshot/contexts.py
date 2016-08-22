@@ -15,6 +15,7 @@ import Queue
 
 from buckshot import logutils
 from buckshot import procutils
+from buckshot import datautils
 from buckshot import constants
 from buckshot.listener import Listener
 
@@ -78,7 +79,7 @@ class distributed(object):
 
         Args:
             iterable: An iterable collection of *args to be passed to the
-                worker function.
+                worker function. For example: [(1,), (2,), (3,)]
 
         Yields:
             Results from the worker function. If a subprocess error occurs,
@@ -88,14 +89,16 @@ class distributed(object):
         recv_counter = itertools.count(1)
         num_sent = num_recv = 0
 
-        iteritems = iter(iterable)
-        item = next(iteritems)
+        # Convert the input into a sequence into a list of tuples.
+        # This is in case we received a flat list of values.
+        iterargs = datautils.iterargs(iterable)
+        args = next(iterargs)
 
         while True:
             try:
-                self._in_queue.put_nowait(item)
+                self._in_queue.put_nowait(args)
                 num_sent = next(send_counter)
-                item = next(iteritems)
+                args = next(iterargs)
             except Queue.Full:
                 retval = self._out_queue.get()
                 num_recv = next(recv_counter)
