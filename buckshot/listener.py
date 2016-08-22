@@ -59,8 +59,8 @@ class Listener(object):
         """
         while True:
             try:
-                args = self._recv()
-                retval = self._func(*(args,))  # This is kinda ugly...
+                worker_args = self._recv()
+                retval = self._func(*(worker_args,))  # This is kinda ugly...
             except Suicide:
                 return
             except Exception as ex:
