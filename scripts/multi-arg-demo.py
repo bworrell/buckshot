@@ -18,8 +18,7 @@ def sleep_and_square(x, y):
     print("%s sleeping for %f seconds" % (pid, x))
     time.sleep(x)
 
-    print ("%s processing %d" % (pid, y))
-    return y ** 2
+    return x, y
 
 
 def main():
@@ -27,6 +26,7 @@ def main():
     results = list(sleep_and_square(values))
 
     print("\nReceived %s values" % len(results))
+    print(results)
 
 
 if __name__ == "__main__":
