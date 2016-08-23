@@ -6,6 +6,7 @@ import logging
 
 from buckshot import errors
 from buckshot import signals
+from buckshot import tasks
 
 LOG = logging.getLogger(__name__)
 
@@ -53,16 +54,24 @@ class Listener(object):
         self._send(signals.Stopped(os.getpid()))
         raise Suicide()
 
+    def _run_worker(self, task):
+        try:
+            result = self._func(*task.args)
+        except Exception as ex:
+            result = errors.SubprocessError(ex)
+        return tasks.Result(task.id, result)
+
     def __call__(self, *args):
         """Listen for values on the input queue, hand them off to the worker
         function, and send results across the output queue.
         """
         while True:
             try:
-                worker_args = self._recv()
-                retval = self._func(*worker_args)
+                task = self._recv()
             except Suicide:
                 return
             except Exception as ex:
                 retval = errors.SubprocessError(ex)
+            else:
+                retval = self._run_worker(task)
             self._send(retval)

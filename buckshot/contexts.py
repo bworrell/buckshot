@@ -10,13 +10,17 @@ import os
 import signal
 import logging
 import itertools
+import collections
 import multiprocessing
 import Queue
 
+
+from buckshot import errors
 from buckshot import logutils
 from buckshot import procutils
 from buckshot import datautils
 from buckshot import constants
+from buckshot.tasks import TaskIterator
 from buckshot.listener import Listener
 
 LOG = logging.getLogger(__name__)
@@ -35,12 +39,20 @@ class distributed(object):
             provided, the number of CPUs on the system will be used.
     """
 
-    def __init__(self, func, processes=None):
+    def __init__(self, func, processes=None, ordered=True):
         self._func = func
         self._size = processes or constants.CPU_COUNT
+        self._ordered = ordered
         self._process_map = {}
+
         self._in_queue = None
         self._out_queue = None
+
+        self._num_sent = 0  # Number of tasks sent
+        self._num_recv = 0  # Number of results received
+
+        self._task_queue  = collections.deque()
+        self._uncollected = {}
 
     def __len__(self):
         """Return the number of processes registered."""
@@ -85,30 +97,56 @@ class distributed(object):
             Results from the worker function. If a subprocess error occurs,
             the result value will be an instance of errors.SubprocessError.
         """
-        send_counter = itertools.count(1)
-        recv_counter = itertools.count(1)
-        num_sent = num_recv = 0
-
-        # Convert the input into a sequence into a list of tuples.
-        # This is in case we received a flat list of values.
-        iterargs = datautils.iterargs(iterable)
-        args = next(iterargs)
+        # Convert the input iterable into Task objects.
+        itertasks = TaskIterator(iterable)
+        task = next(itertasks)
 
         while True:
             try:
-                self._in_queue.put_nowait(args)
-                num_sent = next(send_counter)
-                args = next(iterargs)
+                self._send_task(task)
+                task = next(itertasks)
             except Queue.Full:
-                retval = self._out_queue.get()
-                num_recv = next(recv_counter)
-                yield retval
+                self._recv_result()
+
+                for result in self._results_to_yield():  # I wish I had `yield from`  :(
+                    yield result.value
+
             except StopIteration:
                 break
 
-        while num_recv < num_sent:
-            yield self._out_queue.get()
-            num_recv = next(recv_counter)
+        while not self.is_finished:
+            self._recv_result()
+            for result in self._results_to_yield():
+                yield result.value
+
+    @property
+    def is_finished(self):
+        return not len(self._uncollected)
+
+    @property
+    def results_ready(self):
+        if not self._task_queue:
+            return False
+
+        return self._task_queue[0].id in self._uncollected
+
+    def _send_task(self, task):
+        self._in_queue.put_nowait(task)
+        self._task_queue.append(task)
+
+    def _recv_result(self):
+        result = self._out_queue.get()
+
+        if result is errors.SubprocessError:
+            raise result  # One of our workers failed.
+
+        self._uncollected[result.task_id] = result
+
+    def _results_to_yield(self):
+        while self.results_ready:
+            task   = self._task_queue.popleft()
+            result = self._uncollected.pop(task.id)
+            yield result
 
     def _lookup_process(self, pid):
         """Get the Process object associated with the pid."""
