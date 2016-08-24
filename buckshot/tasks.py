@@ -33,6 +33,3 @@ class TaskIterator(collections.Iterator):
 
     def next(self):
         return next(self._iter)
-
-
-
