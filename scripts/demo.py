@@ -18,7 +18,7 @@ def harmonic_sum(x):
     return hsum
 
 
-@distribute
+@distribute(ordered=False)
 def distributed_harmonic_sum(x):
     return harmonic_sum(x)
 
