@@ -1,7 +1,9 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import os
 import collections
+import multiprocessing
 
 from buckshot import datautils
 
@@ -33,3 +35,22 @@ class TaskIterator(collections.Iterator):
 
     def next(self):
         return next(self._iter)
+
+
+class TaskRegistry(object):
+    def __init__(self):
+        manager = multiprocessing.Manager()
+        self._task2pid = manager.dict()
+
+    def register(self, task):
+        pid = os.getpid()
+        self._task2pid[task.id] = pid
+
+    def remove(self, task_id):
+        del self._task2pid[task_id]
+
+    def processes(self):
+        return sorted(set(self._task2pid.itervalues()))
+
+    def tasks(self):
+        return self._task2pid.keys()
