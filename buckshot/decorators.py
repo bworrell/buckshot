@@ -15,7 +15,7 @@ from buckshot.contexts import distributed
 LOG = logging.getLogger(__name__)
 
 
-def distribute(processes=None, ordered=True):
+def distribute(*args, **kwargs):
     """Decorator which turns a function into a mappable, distributed task
     worker.
 
@@ -42,13 +42,14 @@ def distribute(processes=None, ordered=True):
         def inner(*args):
             iterable = args[-1]  # Kind of a hack to work with instance methods.
 
-            with distributed(func, processes, ordered) as mapfunc:
+            with distributed(func, **kwargs) as mapfunc:
                 for result in mapfunc(iterable):
                     yield result
-
         return inner
 
-    if callable(processes):
-        func, processes = processes, None
+    if args and kwargs:
+        raise ValueError("Cannot provide positional arguments.")
+    elif args:
+        func = args[0]
         return decorator(func)
     return decorator
