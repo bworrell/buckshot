@@ -76,11 +76,10 @@ class ProcessPoolDistributor(object):
             This creates Processes with `daemon=True`, so if the parent process
             dies the child processes will be killed.
         """
-
         self._processes = []
         self._task_registry = TaskRegistry()
-        self._result_queue = multiprocessing.Queue(maxsize=self._num_processes)
-        self._task_queue = multiprocessing.Queue()
+        self._result_queue = multiprocessing.Queue()  # TODO: Should this have a maxsize?
+        self._task_queue = multiprocessing.Queue(maxsize=self._num_processes)
 
         self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
         self._task_results_waiting = {}
