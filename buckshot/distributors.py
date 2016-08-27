@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import os
+import abc
 import Queue
 import signal
 import logging
@@ -81,7 +82,7 @@ class ProcessPoolDistributor(object):
         self._result_queue = multiprocessing.Queue(maxsize=self._num_processes)
         self._task_queue = multiprocessing.Queue()
 
-        self._tasks_in_progress = collections.OrderedDict()
+        self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
         self._task_results_waiting = {}
 
         listener = Listener(
@@ -113,6 +114,36 @@ class ProcessPoolDistributor(object):
         self._task_results_waiting[result.task_id] = result
         self._task_registry.remove(result.task_id)
 
+    def _map_to_workers(self, iterable, result_getter):
+        """Map the arguments in the input `iterable` to the worker processes.
+        Yield any results that worker processes send back.
+
+        Args:
+            iterable: An iterable collection of argument tuples.
+            result_getter: A function which pulls a result off of the
+                worker task queue, and yields and results that are ready
+                to be sent back to the caller.
+        """
+        if not self.is_started:
+            raise RuntimeError("Cannot process inputs: must call start() first.")
+
+        tasks = TaskIterator(iterable)
+        task  = next(tasks)
+
+        while True:
+            try:
+                self._send_task(task)
+                task = next(tasks)
+            except Queue.Full:
+                for result in result_getter():  # I wish I had `yield from`  :(
+                    yield result
+            except StopIteration:
+                break
+
+        while not self.is_completed:
+            for result in result_getter():
+                yield result
+
     @funcutils.unlock_instance
     def imap(self, iterable):
         """Send each argument tuple in `iterable` to a worker process and
@@ -128,46 +159,24 @@ class ProcessPoolDistributor(object):
             Results from the work function. The results will be returned in
             order of their associated inputs.
         """
-        if not self.is_started:
-            raise RuntimeError("Cannot process inputs: must call start() first.")
-
         def get_results():
             """Get a result from the worker output queue and try to yield
             results back to the caller.
 
             This yields results back in the order of their associated tasks.
             """
-            self._recv_result()  # Get a result off the worker return queue
-
-            # All this junk is to make sure we yield results in the order
-            # of their associated tasks.
-            tasks   = self._tasks_in_progress
+            self._recv_result()  # blocks
+            tasks = self._tasks_in_progress
             results = self._task_results_waiting
+            task_ids = (x for x in tasks.keys() if x in results)
 
-            for task_id in tasks.keys():
-                if task_id not in results:
-                    break
-
+            for task_id in task_ids:
                 del tasks[task_id]
                 result = results.pop(task_id)
                 yield result.value
 
-        tasks = TaskIterator(iterable)
-        task  = next(tasks)
-
-        while True:
-            try:
-                self._send_task(task)
-                task = next(tasks)
-            except Queue.Full:
-                for result in get_results():  # I wish I had `yield from`  :(
-                    yield result
-            except StopIteration:
-                break
-
-        while not self.is_completed:
-            for result in get_results():
-                yield result
+        for result in self._map_to_workers(iterable, get_results):
+            yield result
 
     @funcutils.unlock_instance
     def imap_unordered(self, iterable):
@@ -184,43 +193,23 @@ class ProcessPoolDistributor(object):
             Results from the work function. The results are yielded in the
             order they are received from worker processes.
         """
-        if not self.is_started:
-            raise RuntimeError("Cannot process inputs: must call start() first.")
-
         def get_results():
             """Get a result from the worker output queue and try to yield
             results back to the caller.
 
             This yields results back in the order of their associated tasks.
             """
-            self._recv_result()  # Get a result off the worker return queue
-
-            tasks   = self._tasks_in_progress
+            self._recv_result()  # blocks
+            tasks = self._tasks_in_progress
             results = self._task_results_waiting
 
-            for task_id in tasks.keys():
-                if task_id in results:
-                    del tasks[task_id]
-                    result = results.pop(task_id)
-                    yield result.value
+            for task_id in results.keys():
+                del tasks[task_id]
+                result = results.pop(task_id)
+                yield result.value
 
-        tasks = TaskIterator(iterable)
-        task  = next(tasks)
-
-        while True:
-            try:
-                self._send_task(task)
-                task = next(tasks)
-            except Queue.Full:
-                for result in get_results():  # I wish I had `yield from`  :(
-                    yield result
-            except StopIteration:
-                break
-
-        while not self.is_completed:
-            for result in get_results():
-                yield result
-
+        for result in self._map_to_workers(iterable, get_results):
+            yield result
 
     @funcutils.unlock_instance
     def stop(self):
@@ -237,3 +226,5 @@ class ProcessPoolDistributor(object):
         self._task_registry = None
         self._tasks_in_progress = None
         self._task_results_waiting = None
+
+
