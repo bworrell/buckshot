@@ -8,11 +8,9 @@ import multiprocessing
 from buckshot import datautils
 
 
-class NoResult(object):
-    pass
-
-
 class Task(object):
+    """Encapsulates worker function inputs"""
+
     __slots__ = ["id", "args"]
 
     def __init__(self, id, args):
@@ -21,6 +19,8 @@ class Task(object):
 
 
 class Result(object):
+    """Encapsulates worker function return values."""
+
     __slots__ = ["task_id", "value"]
 
     def __init__(self, task_id, value):
@@ -29,6 +29,12 @@ class Result(object):
 
 
 class TaskIterator(collections.Iterator):
+    """Iterator which yields Task objects for the input argument tuples.
+
+    Args:
+        args: An iterable collection of argument tuples. E.g., [(0,1), (2,3), ...]
+    """
+
     def __init__(self, args):
         args = datautils.iterargs(args)
         self._iter = (Task(id, arguments) for id, arguments in enumerate(args))
@@ -38,6 +44,15 @@ class TaskIterator(collections.Iterator):
 
 
 class TaskRegistry(object):
+    """Registry of Task objects.
+
+    When worker subprocesses pick up tasks, they notify the registry of that
+    they received it and are working on it.
+
+    Consumers of task Results should remove registry items before returning
+    results to their caller.
+    """
+
     def __init__(self):
         manager = multiprocessing.Manager()
         self._task2pid = manager.dict()
