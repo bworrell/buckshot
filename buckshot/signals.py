@@ -4,7 +4,7 @@ communicate state.
 """
 
 class StopProcessing(object):
-    """Tells a Listner to stop processing."""
+    """Tells a Listener to stop processing."""
     pass
 
 
