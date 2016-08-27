@@ -50,7 +50,7 @@ def run_distribute(values, ordered):
 
 
 def main():
-    values = range(500, 1, -1)
+    values = range(750, 0, -1)
 
     # Generate the harmonic sum for each value in values over a single thread.
     r1 = run_single(values)
