@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 import logging
 
 from buckshot import logutils
-from buckshot.distributors import ProcessPoolDistrubor
+from buckshot.distributors import ProcessPoolDistributor
 
 LOG = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class distributed(object):
 
     def __init__(self, func, processes=None, ordered=True, timeout=None):
         self._ordered = bool(ordered)
-        self._distrubtor = ProcessPoolDistrubor(
+        self._distrubtor = ProcessPoolDistributor(
             func=func,
             num_processes=processes,
             timeout=timeout

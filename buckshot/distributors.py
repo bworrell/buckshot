@@ -18,7 +18,7 @@ from buckshot.tasks import TaskIterator, TaskRegistry
 LOG = logging.getLogger(__name__)
 
 
-class ProcessPoolDistrubor(object):
+class ProcessPoolDistributor(object):
     """Distributes an input function across multiple processes.
 
     Args:
