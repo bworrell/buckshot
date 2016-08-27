@@ -86,6 +86,8 @@ Known Issues
 * Function outputs must be picklable.
 * If a child process is killed externally, ``buckshot`` will block forever waiting
   for results.
+* This uses ``os.fork()`` under the hood, so there is a risk of rapidly exhausting
+  memory.
 
 
 LICENSE
