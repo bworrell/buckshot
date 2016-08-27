@@ -4,8 +4,9 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import time
+import timeit
 import random
+import functools
 import fractions
 
 import buckshot
@@ -19,7 +20,7 @@ def harmonic_sum(x):
 
 
 @buckshot.distribute(ordered=False)
-def distributed_harmonic_sum(x):
+def unordered_distributed_harmonic_sum(x):
     return harmonic_sum(x)
 
 
@@ -28,50 +29,37 @@ def ordered_distributed_harmonic_sum(x):
     return harmonic_sum(x)
 
 
-def run_single(values):
-    print("Starting single process run...")
-    results = []
-    single_process_time = time.time()
-
-    for val in values:
-        results.append(harmonic_sum(val))
-
-    print("Single process: %s" % (time.time() - single_process_time))
-    return results
+def run_serial(values):
+    return [harmonic_sum(x) for x in values]
 
 
 def run_distribute(values, ordered):
-    print("Starting multi-process run via @distribute with ordered = %s..." % ordered)
-
-    multi_process_time = time.time()
-    results = list(distributed_harmonic_sum(values))
-
-    print("Multi process via @distribute: %s" % (time.time() - multi_process_time))
-    return results
+    if ordered:
+        harmonic_sum = ordered_distributed_harmonic_sum
+    else:
+        harmonic_sum = unordered_distributed_harmonic_sum
+    return list(harmonic_sum(values))
 
 
 def main():
-    values = range(1, 750)
+    values = range(10)
     random.shuffle(values)
 
-    # Generate the harmonic sum for each value in values over a single thread.
-    r1 = run_single(values)
-
-    print()
-
-    # Generate the harmonic sum for each value in values using the @distrubute
-    # decorated function and ordered=False
-
+    print("Verifying results are the same across functions...", end=" ")
+    r1 = run_serial(values)
     r2 = run_distribute(values, ordered=False)
-
-    print()
-
-    # Generate the harmonic sum for each value in values using the @distrubute
-    # decorated function and ordered=True.
-
     r3 = run_distribute(values, ordered=True)
-
     assert sorted(r1) == sorted(r2) == sorted(r3)
+    print("All good!")
+
+    print("Benchmarking...")
+    values = range(1, 1000, 5)
+    random.shuffle(values)
+
+    benchmark = functools.partial(timeit.repeat, number=1, repeat=5)
+    print("serial:                     ", benchmark(lambda: run_serial(values)))
+    print("@distribute(ordered=False): ", benchmark(lambda: run_distribute(values, ordered=False)))
+    print("@distribute(ordered=True):  ", benchmark(lambda: run_distribute(values, ordered=True)))
 
 if __name__ == "__main__":
     main()
