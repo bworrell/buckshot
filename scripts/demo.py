@@ -7,8 +7,7 @@ from __future__ import print_function
 import time
 import fractions
 
-from buckshot.contexts import distributed
-from buckshot.decorators import distribute
+import buckshot
 
 
 def harmonic_sum(x):
@@ -18,8 +17,13 @@ def harmonic_sum(x):
     return hsum
 
 
-@distribute(ordered=False)
+@buckshot.distribute(ordered=False)
 def distributed_harmonic_sum(x):
+    return harmonic_sum(x)
+
+
+@buckshot.distribute(ordered=True)
+def ordered_distributed_harmonic_sum(x):
     return harmonic_sum(x)
 
 
@@ -35,20 +39,8 @@ def run_single(values):
     return results
 
 
-def run_multi(values):
-    print("Starting multi-process run...")
-
-    multi_process_time = time.time()
-
-    with distributed(harmonic_sum) as func:
-        results = list(func(values))
-
-    print("Multi process: %s" % (time.time() - multi_process_time))
-    return results
-
-
-def run_distribute(values):
-    print("Starting multi-process run via @distribute...")
+def run_distribute(values, ordered):
+    print("Starting multi-process run via @distribute with ordered = %s..." % ordered)
 
     multi_process_time = time.time()
     results = list(distributed_harmonic_sum(values))
@@ -65,15 +57,17 @@ def main():
 
     print()
 
-    # Generate the harmonic sum for each value in values over multiple processes.
-    r2 = run_multi(values)
+    # Generate the harmonic sum for each value in values using the @distrubute
+    # decorated function and ordered=False
+
+    r2 = run_distribute(values, ordered=False)
 
     print()
 
     # Generate the harmonic sum for each value in values using the @distrubute
-    # decorated function.
+    # decorated function and ordered=True.
 
-    r3 = run_distribute(values)
+    r3 = run_distribute(values, ordered=True)
 
     assert sorted(r1) == sorted(r2) == sorted(r3)
 
