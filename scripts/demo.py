@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import time
+import random
 import fractions
 
 import buckshot
@@ -50,7 +51,8 @@ def run_distribute(values, ordered):
 
 
 def main():
-    values = range(750, 0, -1)
+    values = range(1, 750)
+    random.shuffle(values)
 
     # Generate the harmonic sum for each value in values over a single thread.
     r1 = run_single(values)
