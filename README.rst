@@ -32,7 +32,7 @@ Serial Approach
 
     import fractions
 
-    def harmonic_sum(x)
+    def harmonic_sum(x):
         F = fractions.Fraction
         return sum(F(1, d) for d in xrange(1, x + 1))
     
@@ -51,11 +51,11 @@ Using ``@distribute``
     from buckshot import distribute
 
     @distribute(processes=4)
-    def harmonic_sum(x)
+    def harmonic_sum(x):
         F = fractions.Fraction
         return sum(F(1, d) for d in xrange(1, x + 1))
 
-    for result in harmonic_sum(range(1, 100):  # Pass in values list.
+    for result in harmonic_sum(range(1, 100)):  # Pass in values list.
         print result
 
 
@@ -68,7 +68,7 @@ Using ``with distributed(...)``
 
     from buckshot import distributed
 
-    def harmonic_sum(x)
+    def harmonic_sum(x):
         F = fractions.Fraction
         return sum(F(1, d) for d in xrange(1, x + 1))
 
