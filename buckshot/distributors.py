@@ -19,13 +19,14 @@ LOG = logging.getLogger(__name__)
 
 
 class ProcessPoolDistrubor(object):
-    def __init__(self, func, num_processes=None):
+    def __init__(self, func, num_processes=None, timeout=None):
         self._num_processes = num_processes or constants.CPU_COUNT
         self._func = func
         self._processes = None
+        self._timeout = None
 
-        self._in_queue = None   # worker tasks
-        self._out_queue = None  # worker results
+        self._task_queue = None   # worker tasks
+        self._result_queue = None  # worker results
 
         self._task_registry = None
         self._tasks_in_progress = None  # tasks started with unreturned results
@@ -51,8 +52,8 @@ class ProcessPoolDistrubor(object):
     def start(self):
         self._processes = []
         self._task_registry = TaskRegistry()
-        self._in_queue = multiprocessing.Queue(maxsize=self._num_processes)
-        self._out_queue = multiprocessing.Queue()
+        self._result_queue = multiprocessing.Queue(maxsize=self._num_processes)
+        self._task_queue = multiprocessing.Queue()
 
         self._tasks_in_progress = collections.OrderedDict()
         self._task_results_waiting = {}
@@ -60,24 +61,24 @@ class ProcessPoolDistrubor(object):
         listener = Listener(
             func=self._func,
             registry=self._task_registry,
-            input_queue=self._in_queue,
-            output_queue=self._out_queue
+            input_queue=self._task_queue,
+            output_queue=self._result_queue
         )
 
-        for _ in range(self._num_processes):
+        for _ in xrange(self._num_processes):
             process = multiprocessing.Process(target=listener)
-            process.daemon = True  # Prevent zombies
+            process.daemon = True  # This will die if parent process dies.
             process.start()
             self._processes.append(process)
 
         return self
 
     def _send_task(self, task):
-        self._in_queue.put_nowait(task)
+        self._task_queue.put_nowait(task)
         self._tasks_in_progress[task.id] = task
 
     def _recv_result(self):
-        result = self._out_queue.get()  # blocks
+        result = self._result_queue.get(timeout=self._timeout)  # blocks
 
         if result is errors.SubprocessError:
             raise result  # One of our workers failed.
