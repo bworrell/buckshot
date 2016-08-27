@@ -114,6 +114,8 @@ class ProcessPoolDistributor(object):
         self._task_results_waiting[result.task_id] = result
         self._task_registry.remove(result.task_id)
 
+        return result
+
     def _map_to_workers(self, iterable, result_getter):
         """Map the arguments in the input `iterable` to the worker processes.
         Yield any results that worker processes send back.
@@ -199,14 +201,10 @@ class ProcessPoolDistributor(object):
 
             This yields results back in the order of their associated tasks.
             """
-            self._recv_result()  # blocks
-            tasks = self._tasks_in_progress
-            results = self._task_results_waiting
-
-            for task_id in results.keys():
-                del tasks[task_id]
-                result = results.pop(task_id)
-                yield result.value
+            result = self._recv_result()  # blocks
+            del self._tasks_in_progress[result.task_id]
+            del self._task_results_waiting[result.task_id]
+            yield result.value
 
         for result in self._map_to_workers(iterable, get_results):
             yield result
