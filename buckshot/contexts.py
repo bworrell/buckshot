@@ -26,9 +26,13 @@ class distributed(object):
             provided, the number of CPUs on the system will be used.
     """
 
-    def __init__(self, func, processes=None, ordered=True):
-        self._distrubtor = ProcessPoolDistrubor(func=func, num_processes=processes)
+    def __init__(self, func, processes=None, ordered=True, timeout=None):
         self._ordered = bool(ordered)
+        self._distrubtor = ProcessPoolDistrubor(
+            func=func,
+            num_processes=processes,
+            timeout=timeout
+        )
 
     @logutils.tracelog(LOG)
     def __enter__(self):
@@ -43,15 +47,14 @@ class distributed(object):
     @logutils.tracelog(LOG)
     def __call__(self, iterable):
         """Map each item in the input `iterable` to our worker subprocesses.
-        When results become availble, yield them to the caller.
+        When results become available, yield them to the caller.
 
         Args:
             iterable: An iterable collection of *args to be passed to the
                 worker function. For example: [(1,), (2,), (3,)]
 
         Yields:
-            Results from the worker function. If a subprocess error occurs,
-            the result value will be an instance of errors.SubprocessError.
+            Results from the worker function.
         """
         if self._ordered:
             imap = self._distrubtor.imap
