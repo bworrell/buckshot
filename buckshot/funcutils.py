@@ -12,30 +12,6 @@ def assert_unlocked(obj):
         raise RuntimeError("Item is locked.")
 
 
-def lock_function(func):
-    @functools.wraps(func)
-    def inner(*args, **kwargs):
-        assert_unlocked(func)
-        func.__is_locked = True
-        try:
-            retval = func(*args, **kwargs)
-        except:
-            func.__is_locked = False
-            raise
-        return retval
-    return inner
-
-
-def unlock_function(func):
-    @functools.wraps(func)
-    def inner(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        finally:
-            func.__is_locked = False
-    return inner
-
-
 def lock_instance(func):
     @functools.wraps(func)
     def inner(self, *args, **kwargs):
