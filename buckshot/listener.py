@@ -24,8 +24,9 @@ class Listener(object):
     id and die.
     """
 
-    def __init__(self, func, input_queue, output_queue):
+    def __init__(self, func, registry, input_queue, output_queue):
         self._func = func
+        self._registry = registry
         self._input_queue = input_queue
         self._output_queue = output_queue
 
@@ -35,12 +36,13 @@ class Listener(object):
 
         If a signals.StopProcessing message is received, die.
         """
-        val = self._input_queue.get()
+        task = self._input_queue.get()
 
-        if val is signals.StopProcessing:
+        if task is signals.StopProcessing:
             self._die()
 
-        return val
+        self._registry.register(task)
+        return task
 
     def _send(self, value):
         """Put the `value` on the output queue."""

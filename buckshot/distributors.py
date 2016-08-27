@@ -11,8 +11,8 @@ import multiprocessing
 from buckshot import errors
 from buckshot import funcutils
 from buckshot import constants
-from buckshot.tasks import TaskIterator
 from buckshot.listener import Listener
+from buckshot.tasks import TaskIterator, TaskRegistry
 
 
 LOG = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ class ProcessPoolDistrubor(object):
         self._in_queue = None   # worker tasks
         self._out_queue = None  # worker results
 
+        self._task_registry = None
         self._tasks_in_progress = None  # tasks started with unreturned results
         self._task_results_waiting = None
 
@@ -42,9 +43,14 @@ class ProcessPoolDistrubor(object):
             return False
         return True
 
+    def _is_alive(self, pid):
+        process = next(x for x in self._processes if x.pid == pid)
+        return  process.is_alive()
+
     @funcutils.lock_instance
     def start(self):
         self._processes = []
+        self._task_registry = TaskRegistry()
         self._in_queue = multiprocessing.Queue(maxsize=self._num_processes)
         self._out_queue = multiprocessing.Queue()
 
@@ -53,12 +59,14 @@ class ProcessPoolDistrubor(object):
 
         listener = Listener(
             func=self._func,
+            registry=self._task_registry,
             input_queue=self._in_queue,
             output_queue=self._out_queue
         )
 
         for _ in range(self._num_processes):
             process = multiprocessing.Process(target=listener)
+            process.daemon = True  # Prevent zombies
             process.start()
             self._processes.append(process)
 
@@ -74,7 +82,9 @@ class ProcessPoolDistrubor(object):
         if result is errors.SubprocessError:
             raise result  # One of our workers failed.
 
+        LOG.debug("Received task: %s", result.task_id)
         self._task_results_waiting[result.task_id] = result
+        self._task_registry.remove(result.task_id)
 
     @funcutils.unlock_instance
     def imap(self, iterable):
