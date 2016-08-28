@@ -1,12 +1,15 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import os
+
 
 class SubprocessError(Exception):
     """Encapsulates an exception which may be raised in a worker subprocess."""
 
     def __init__(self, ex):
         super(SubprocessError, self).__init__(str(ex))
+        self.pid = os.getpid()
         self.exception = ex
 
     def __unicode__(self):
