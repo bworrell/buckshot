@@ -58,8 +58,7 @@ class TaskRegistry(object):
         self._task2pid = manager.dict()
 
     def register(self, task):
-        pid = os.getpid()
-        self._task2pid[task.id] = pid
+        self._task2pid[task.id] = os.getpid()
 
     def remove(self, task_id):
         del self._task2pid[task_id]
