@@ -4,8 +4,10 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import sys
 import timeit
 import random
+import logging
 import functools
 import fractions
 
@@ -62,5 +64,9 @@ def main():
     print("@distribute(ordered=False): ", benchmark(lambda: run_distribute(values, ordered=False)))
     print("@distribute(ordered=True):  ", benchmark(lambda: run_distribute(values, ordered=True)))
 
+
 if __name__ == "__main__":
+    if "-d" in sys.argv:
+        logging.basicConfig(level=logging.DEBUG)
+
     main()
