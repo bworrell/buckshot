@@ -49,6 +49,7 @@ def main():
     r1 = run_serial(values)
     r2 = run_distribute(values, ordered=False)
     r3 = run_distribute(values, ordered=True)
+    assert r1 == r3
     assert sorted(r1) == sorted(r2) == sorted(r3)
     print("All good!")
 
