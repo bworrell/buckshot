@@ -60,7 +60,7 @@ class Listener(object):
         try:
             result = self._func(*task.args)
         except Exception as ex:
-            result = errors.SubprocessError(ex)
+            result = ex
         return tasks.Result(task.id, result)
 
     def __call__(self, *args):
