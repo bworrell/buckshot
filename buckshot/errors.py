@@ -8,12 +8,13 @@ class SubprocessError(Exception):
     """Encapsulates an exception which may be raised in a worker subprocess."""
 
     def __init__(self, ex):
-        super(SubprocessError, self).__init__(str(ex))
+        super(SubprocessError, self).__init__(unicode(ex))
         self.pid = os.getpid()
         self.exception = ex
 
-    def __unicode__(self):
-        return unicode(self.exception)
 
-    def __str__(self):
-        return unicode(self).encode("utf-8")
+class TaskTimeout(Exception):
+    def __init__(self, msg, task):
+        super(TaskTimeout, self).__init__(msg)
+        self.task = task
+

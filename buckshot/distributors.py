@@ -9,7 +9,7 @@ import collections
 import multiprocessing
 
 from buckshot import errors
-from buckshot import funcutils
+from buckshot import lockutils
 from buckshot import constants
 from buckshot.listener import Listener
 from buckshot.tasks import TaskIterator, TaskRegistry
@@ -62,7 +62,7 @@ class ProcessPoolDistributor(object):
         process = next(x for x in self._processes if x.pid == pid)
         return  process.is_alive()
 
-    @funcutils.lock_instance
+    @lockutils.lock_instance
     def start(self):
         """Start the worker processes and return self.
 
@@ -75,7 +75,7 @@ class ProcessPoolDistributor(object):
             This creates Processes with `daemon=True`, so if the parent process
             dies the child processes will be killed.
         """
-        self._processes = []
+        self._processes = {}
         self._task_registry = TaskRegistry()
         self._result_queue = multiprocessing.Queue()  # TODO: Should this have a maxsize?
         self._task_queue = multiprocessing.Queue(maxsize=self._num_processes)
@@ -94,8 +94,7 @@ class ProcessPoolDistributor(object):
             process = multiprocessing.Process(target=listener)
             process.daemon = True  # This will die if parent process dies.
             process.start()
-            self._processes.append(process)
-
+            self._processes[process.pid] = process
         return self
 
     def _send_task(self, task):
@@ -108,11 +107,14 @@ class ProcessPoolDistributor(object):
         if result is errors.SubprocessError:
             raise result  # One of our workers failed.
 
-        LOG.debug("Received task: %s", result.task_id)
+        LOG.debug("Received result for task: %s", result.task_id)
         self._task_results_waiting[result.task_id] = result
         self._task_registry.remove(result.task_id)
 
         return result
+
+    def _handle_timeout(self):
+        LOG.error("TODO: Handle timeouts and child process failures...")
 
     def _map_to_workers(self, iterable, result_getter):
         """Map the arguments in the input `iterable` to the worker processes.
@@ -137,6 +139,9 @@ class ProcessPoolDistributor(object):
             except Queue.Full:
                 for result in result_getter():  # I wish I had `yield from`  :(
                     yield result
+            except Queue.Empty:
+                self._handle_timeout()
+                raise
             except StopIteration:
                 break
 
@@ -144,7 +149,7 @@ class ProcessPoolDistributor(object):
             for result in result_getter():
                 yield result
 
-    @funcutils.unlock_instance
+    @lockutils.lock_instance
     def imap(self, iterable):
         """Send each argument tuple in `iterable` to a worker process and
         yield results.
@@ -180,7 +185,7 @@ class ProcessPoolDistributor(object):
         for result in self._map_to_workers(iterable, get_results):
             yield result
 
-    @funcutils.unlock_instance
+    @lockutils.lock_instance
     def imap_unordered(self, iterable):
         """Send each argument tuple in `iterable` to a worker process and
         yield results.
@@ -209,14 +214,14 @@ class ProcessPoolDistributor(object):
         for result in self._map_to_workers(iterable, get_results):
             yield result
 
-    @funcutils.unlock_instance
+    @lockutils.unlock_instance
     def stop(self):
         """Kill all child processes and clear results."""
 
         while self._processes:
-            process = self._processes.pop()
-            LOG.debug("Killing subprocess %s.", process.pid)
-            os.kill(process.pid, signal.SIGTERM)
+            pid, process = self._processes.popitem()
+            LOG.debug("Killing subprocess %s.", pid)
+            os.kill(pid, signal.SIGTERM)
 
         self._processes = None
         self._task_queue = None
