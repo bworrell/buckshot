@@ -73,7 +73,7 @@ Using ``with distributed(...)``
         return sum(F(1, d) for d in xrange(1, x + 1))
 
     with distributed(harmonic_sum, processes=4) as distributed_harmonic_sum:
-        for result in distributed_harmonic_sum(range(1, 100):
+        for result in distributed_harmonic_sum(range(1, 100)):
             print result
 
 All processes are destroyed when inputs are exhausted and/or the context is exited.
