@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import os
-import abc
 import Queue
 import signal
 import logging
@@ -169,9 +168,11 @@ class ProcessPoolDistributor(object):
             self._recv_result()  # blocks
             tasks = self._tasks_in_progress
             results = self._task_results_waiting
-            task_ids = (x for x in tasks.keys() if x in results)
 
-            for task_id in task_ids:
+            for task_id in tasks.keys():
+                if task_id not in results:
+                    break
+
                 del tasks[task_id]
                 result = results.pop(task_id)
                 yield result.value
