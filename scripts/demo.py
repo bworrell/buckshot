@@ -59,7 +59,7 @@ def main():
     values = range(1, 1000, 5)
     random.shuffle(values)
 
-    benchmark = functools.partial(timeit.repeat, number=1, repeat=5)
+    benchmark = functools.partial(timeit.repeat, number=1, repeat=3)
     print("serial:                     ", benchmark(lambda: run_serial(values)))
     print("@distribute(ordered=False): ", benchmark(lambda: run_distribute(values, ordered=False)))
     print("@distribute(ordered=True):  ", benchmark(lambda: run_distribute(values, ordered=True)))
