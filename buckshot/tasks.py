@@ -21,11 +21,12 @@ class Task(object):
 class Result(object):
     """Encapsulates worker function return values."""
 
-    __slots__ = ["task_id", "value"]
+    __slots__ = ["task_id", "value", "pid"]
 
     def __init__(self, task_id, value):
         self.task_id = task_id
         self.value = value
+        self.pid = os.getpid()
 
 
 class TaskIterator(collections.Iterator):
