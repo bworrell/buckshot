@@ -11,9 +11,14 @@ import functools
 
 LOG = logging.getLogger(__name__)
 
+
 def suppress(sig, default=True):
-    """Suppressthe input signal during the execution of the wrapped
+    """Suppress the input signal during the execution of the wrapped
     function. Upon exit, return the signal handler to its default value.
+
+    Warning:
+        This modifies the signal handler globally for a process, so this is
+        basically useless.
     """
     def decorator(func):
         @functools.wraps(func)
