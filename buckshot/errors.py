@@ -16,5 +16,6 @@ class SubprocessError(Exception):
 class TaskTimeout(Exception):
     def __init__(self, msg, task):
         super(TaskTimeout, self).__init__(msg)
+        self.pid = os.getpid()
         self.task = task
 
