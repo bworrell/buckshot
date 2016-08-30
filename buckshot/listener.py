@@ -8,6 +8,7 @@ import threading
 from buckshot import errors
 from buckshot import signals
 from buckshot import tasks
+from buckshot import threads
 from buckshot import constants
 
 LOG = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class Listener(object):
     """
 
     def __init__(self, func, registry, input_queue, output_queue, timeout=None):
-        self._func = func
+        self._worker = threads.isolated(func, daemon=True, timeout=timeout)
         self._registry = registry
         self._input_queue = input_queue
         self._output_queue = output_queue
@@ -59,25 +60,12 @@ class Listener(object):
         self._send(signals.Stopped(os.getpid()))
         raise Suicide()
 
-    def _thread_worker(self, task, result_list):
-        try:
-            result = self._func(*task.args)
-        except Exception as ex:
-            result = ex
-        result_list.append(tasks.Result(task.id, result))
-
     def _run_worker(self, task):
-        queue  = []  # Queue.Queue doesn't seem to work...
-        thread = threading.Thread(target=self._thread_worker, args=(task, queue))
-        thread.daemon = True
-        thread.start()
-        thread.join(self._timeout)  # Block until thread is done or timeout is reached
-
         try:
-            result = queue.pop()
-        except IndexError:
+            result = self._worker(*task.args)
+        except threads.ThreadTimeout:
             raise errors.TaskTimeout("Timeout error", task.id)
-        return result
+        return tasks.Result(task.id, result)
 
     def __call__(self, *args):
         """Listen for values on the input queue, hand them off to the worker
