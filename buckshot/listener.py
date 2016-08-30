@@ -28,11 +28,14 @@ class Listener(object):
     """
 
     def __init__(self, func, registry, input_queue, output_queue, timeout=None):
-        self._worker = threads.isolated(func, daemon=True, timeout=timeout)
         self._registry = registry
         self._input_queue = input_queue
         self._output_queue = output_queue
-        self._timeout = timeout or constants.TASK_TIMEOUT
+        self._worker = threads.isolated(
+            target=func,
+            daemon=True,
+            timeout=timeout
+        )
 
     def _recv(self):
         """Get a message off of the input queue. Block until something is
@@ -62,10 +65,10 @@ class Listener(object):
 
     def _run_worker(self, task):
         try:
-            result = self._worker(*task.args)
+            result, success = self._worker(*task.args), True
         except threads.ThreadTimeout:
-            raise errors.TaskTimeout("Timeout error", task.id)
-        return tasks.Result(task.id, result)
+            result, success = errors.TaskTimeout(task), False
+        return success, tasks.Result(task.id, result)
 
     def __call__(self, *args):
         """Listen for values on the input queue, hand them off to the worker
@@ -78,11 +81,8 @@ class Listener(object):
                 task = self._recv()
             except Suicide:
                 return
-            except errors.TaskTimeout as ex:
-                retval = ex
-                is_running = False
             except Exception as ex:
                 retval = errors.SubprocessError(ex)
             else:
-                retval = self._run_worker(task)
+                is_running, retval = self._run_worker(task)
             self._send(retval)

@@ -1,9 +1,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import os
 import Queue
-import signal
 import logging
 import collections
 import multiprocessing
@@ -31,8 +29,10 @@ class ProcessPoolDistributor(object):
     def __init__(self, func, num_processes=None, timeout=None):
         self._num_processes = num_processes or constants.CPU_COUNT
         self._func = func
+        self._timeout = timeout
+
         self._processes = None
-        self._timeout = None
+        self._listener = None
 
         self._task_queue = None   # worker tasks
         self._result_queue = None  # worker results
@@ -62,6 +62,13 @@ class ProcessPoolDistributor(object):
         process = next(x for x in self._processes if x.pid == pid)
         return  process.is_alive()
 
+    def _create_and_register_process(self):
+        process = multiprocessing.Process(target=self._listener)
+        process.daemon = True  # This will die if parent process dies.
+        process.start()
+        LOG.info("Created new subprocess: %d", process.pid)
+        self._processes[process.pid] = process
+
     @lockutils.lock_instance
     def start(self):
         """Start the worker processes and return self.
@@ -83,18 +90,17 @@ class ProcessPoolDistributor(object):
         self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
         self._task_results_waiting = {}
 
-        listener = Listener(
+        self._listener = Listener(
             func=self._func,
+            timeout=self._timeout,
             registry=self._task_registry,
             input_queue=self._task_queue,
             output_queue=self._result_queue
         )
 
         for _ in xrange(self._num_processes):
-            process = multiprocessing.Process(target=listener)
-            process.daemon = True  # This will die if parent process dies.
-            process.start()
-            self._processes[process.pid] = process
+            self._create_and_register_process()
+
         return self
 
     def _send_task(self, task):
@@ -102,19 +108,31 @@ class ProcessPoolDistributor(object):
         self._tasks_in_progress[task.id] = task
 
     def _recv_result(self):
-        result = self._result_queue.get(timeout=self._timeout)  # blocks
+        result = self._result_queue.get()  # blocks
 
-        if result is errors.SubprocessError:
-            raise result  # One of our workers failed.
+        if isinstance(result, errors.SubprocessError):
+            raise result  # A subprocess died unexpectedly. Shut it down!
+
+        if isinstance(result.value, errors.TaskTimeout):
+            self._handle_task_timeout(result)
 
         LOG.debug("Received result for task: %s", result.task_id)
         self._task_results_waiting[result.task_id] = result
         self._task_registry.remove(result.task_id)
-
         return result
 
-    def _handle_timeout(self):
-        LOG.error("TODO: Handle timeouts and child process failures...")
+    def _handle_task_timeout(self, task_timeout):
+        """Destroy the process that timed out and create a new one in
+        its place.
+        """
+        pid = task_timeout.pid
+
+        # Kill the associated process so the thread stops.
+        LOG.info("Subprocess %d timed out. Terminating...", pid)
+        self._kill_process(pid)
+
+        # Make a new process to replace it.
+        self._create_and_register_process()
 
     def _map_to_workers(self, iterable, result_getter):
         """Map the arguments in the input `iterable` to the worker processes.
@@ -139,9 +157,6 @@ class ProcessPoolDistributor(object):
             except Queue.Full:
                 for result in result_getter():  # I wish I had `yield from`  :(
                     yield result
-            except Queue.Empty:
-                self._handle_timeout()
-                raise
             except StopIteration:
                 break
 
@@ -214,14 +229,19 @@ class ProcessPoolDistributor(object):
         for result in self._map_to_workers(iterable, get_results):
             yield result
 
+    def _kill_process(self, pid):
+        LOG.debug("Killing subprocess %s.", pid)
+        process = self._processes.pop(pid)
+        process.terminate()
+
     @lockutils.unlock_instance
     def stop(self):
         """Kill all child processes and clear results."""
+        if not self.is_started:
+            raise RuntimeError("Cannot call stop() before start()")
 
-        while self._processes:
-            pid, process = self._processes.popitem()
-            LOG.debug("Killing subprocess %s.", pid)
-            os.kill(pid, signal.SIGTERM)
+        for pid in self._processes.keys():
+            self._kill_process(pid)
 
         self._processes = None
         self._task_queue = None

@@ -13,7 +13,7 @@ class ThreadTimeout(Exception):
     pass
 
 
-def isolated(func, daemon=False, timeout=None):
+def isolated(target, daemon=False, timeout=None):
     """Run the input function in an isolated thread.
 
     Note:
@@ -36,7 +36,7 @@ def isolated(func, daemon=False, timeout=None):
     def inner(*args):
         queue = []
         args = (queue,) + args
-        thread = threading.Thread(target=wrapped(func), args=args)
+        thread = threading.Thread(target=wrapped(target), args=args)
         thread.daemon = daemon
         thread.start()
         thread.join(timeout)
