@@ -17,6 +17,9 @@ class Task(object):
         self.id = id
         self.args = args
 
+    def __repr__(self):
+        return "Task(%r, %r)" % (self.id, self.args)
+
 
 class Result(object):
     """Encapsulates worker function return values."""
@@ -27,6 +30,9 @@ class Result(object):
         self.task_id = task_id
         self.value = value
         self.pid = os.getpid()
+
+    def __repr__(self):
+        return "Result(%r, %r)" % (self.task_id, self.value)
 
 
 class TaskIterator(collections.Iterator):
