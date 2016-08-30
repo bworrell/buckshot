@@ -56,7 +56,7 @@ def main():
     print("All good!")
 
     print("Benchmarking...")
-    values = range(1, 1000, 5)
+    values = range(1000, 2000, 25)
     random.shuffle(values)
 
     benchmark = functools.partial(timeit.repeat, number=1, repeat=3)
