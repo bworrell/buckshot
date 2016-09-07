@@ -3,13 +3,11 @@ from __future__ import unicode_literals
 
 import os
 import logging
-import threading
 
 from buckshot import errors
 from buckshot import signals
 from buckshot import tasks
 from buckshot import threads
-from buckshot import constants
 
 LOG = logging.getLogger(__name__)
 
@@ -53,6 +51,7 @@ class Listener(object):
 
     def _send(self, result):
         """Put the `value` on the output queue."""
+        LOG.debug("Sending result: %s", os.getpid())
         self._output_queue.put(result)
 
     def _die(self):
@@ -65,9 +64,11 @@ class Listener(object):
 
     def _run_worker(self, task):
         try:
-            result, success = self._worker(*task.args), True
-        except threads.ThreadTimeout:
-            result, success = errors.TaskTimeout(task), False
+            LOG.info("%s starting task %s", os.getpid(), task.id)
+            success, result = True, self._worker(*task.args)
+        except errors.ThreadTimeout:
+            LOG.error("Task %s timed out", task.id)
+            success, result = False, errors.TaskTimeout(task)
         return success, tasks.Result(task.id, result)
 
     def __call__(self, *args):

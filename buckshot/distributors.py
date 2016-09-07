@@ -66,6 +66,7 @@ class ProcessPoolDistributor(object):
         process = multiprocessing.Process(target=self._listener)
         process.daemon = True  # This will die if parent process dies.
         process.start()
+
         LOG.info("Created new subprocess: %d", process.pid)
         self._processes[process.pid] = process
 
@@ -88,7 +89,7 @@ class ProcessPoolDistributor(object):
         self._task_queue = multiprocessing.Queue(maxsize=self._num_processes)
 
         self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
-        self._task_results_waiting = {}
+        self._task_results_waiting = {}  # task id => Result
 
         self._listener = Listener(
             func=self._func,
@@ -111,7 +112,7 @@ class ProcessPoolDistributor(object):
         result = self._result_queue.get()  # blocks
 
         if isinstance(result, errors.SubprocessError):
-            raise result  # A subprocess died unexpectedly. Shut it down!
+            raise RuntimeError(unicode(result))  # A subprocess died unexpectedly. Shut it down!
 
         if isinstance(result.value, errors.TaskTimeout):
             self._handle_task_timeout(result)
@@ -119,17 +120,22 @@ class ProcessPoolDistributor(object):
         LOG.debug("Received result for task: %s", result.task_id)
         self._task_results_waiting[result.task_id] = result
         self._task_registry.remove(result.task_id)
+
         return result
 
     def _handle_task_timeout(self, task_timeout):
         """Destroy the process that timed out and create a new one in
         its place.
+
+        Note:
+            You MUST pass ``join=True`` to _kill_process or else the
+            shared Queue may deadlock or become corrupted.
         """
         pid = task_timeout.pid
 
         # Kill the associated process so the thread stops.
         LOG.info("Subprocess %d timed out. Terminating...", pid)
-        self._kill_process(pid)
+        self._kill_process(pid, join=True)
 
         # Make a new process to replace it.
         self._create_and_register_process()
@@ -229,9 +235,13 @@ class ProcessPoolDistributor(object):
         for result in self._map_to_workers(iterable, get_results):
             yield result
 
-    def _kill_process(self, pid):
+    def _kill_process(self, pid, join=False):
         LOG.debug("Killing subprocess %s.", pid)
         process = self._processes.pop(pid)
+
+        if join:
+            process.join()
+
         process.terminate()
 
     @lockutils.unlock_instance

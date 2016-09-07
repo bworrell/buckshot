@@ -4,13 +4,10 @@ from __future__ import unicode_literals
 import logging
 import threading
 
+from buckshot import errors
+
 
 LOG = logging.getLogger(__name__)
-
-
-class ThreadTimeout(Exception):
-    """Raised when a Thread does not complete in the allowed time window."""
-    pass
 
 
 def isolated(target, daemon=False, timeout=None):
@@ -44,7 +41,7 @@ def isolated(target, daemon=False, timeout=None):
         try:
             result = queue.pop()
         except IndexError:
-            raise ThreadTimeout()
+            raise errors.ThreadTimeout("Thread timed out.")
         return result
 
     return inner
