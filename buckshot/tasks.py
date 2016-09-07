@@ -43,7 +43,7 @@ class TaskIterator(collections.Iterator):
     """
 
     def __init__(self, args):
-        args = datautils.iterargs(args)
+        args = datautils.itertuples(args)
         self._iter = (Task(id, arguments) for id, arguments in enumerate(args))
 
     def next(self):
