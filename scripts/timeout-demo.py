@@ -12,7 +12,7 @@ import logging
 from buckshot import distribute
 
 
-@distribute(timeout=2.0)
+@distribute(timeout=1.5)
 def sleep_and_unicode(x):
     print("%s sleeping for %f seconds" % (os.getpid(), x))
     time.sleep(x)
@@ -20,7 +20,7 @@ def sleep_and_unicode(x):
 
 
 def main():
-    values = [1, 3, 1, 3]
+    values = [1, 5, 1, 5]
     results = list(sleep_and_unicode(values))
 
     print("\nReceived %s values" % len(results))
