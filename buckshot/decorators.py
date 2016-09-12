@@ -50,7 +50,7 @@ def distribute(*func, **opts):
         raise ValueError("Cannot provide positional arguments.")
 
     def wrapper(func):
-        funcutils.patch_recursion(func)  # Make
+        funcutils.patch_recursion(func)  # Make immediate recursion work.
 
         @functools.wraps(func)
         def inner(*args):
