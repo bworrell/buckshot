@@ -5,6 +5,8 @@ processes.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+__all__ = ["distributed"]
+
 import logging
 
 from buckshot import logutils

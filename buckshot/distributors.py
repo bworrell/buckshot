@@ -60,7 +60,7 @@ class ProcessPoolDistributor(object):
     def _is_alive(self, pid):
         """Return True if the worker process associated with the pid is alive."""
         process = next(x for x in self._processes if x.pid == pid)
-        return  process.is_alive()
+        return process.is_alive()
 
     def _create_and_register_process(self):
         process = multiprocessing.Process(target=self._listener)
