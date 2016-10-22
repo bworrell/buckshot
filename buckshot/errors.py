@@ -18,6 +18,8 @@ class SubprocessError(object):
 
 
 class TaskTimeout(object):
+    """Returned from a worker subprocess when a task times out."""
+
     def __init__(self, task):
         self.pid = os.getpid()
         self.task = task
@@ -28,8 +30,3 @@ class TaskTimeout(object):
 
     def __repr__(self):
         return "TaskTimeout(task=%s)" % (self.task_id)
-
-
-class ThreadTimeout(Exception):
-    """Raised when a Thread does not complete in the allowed time window."""
-    pass
