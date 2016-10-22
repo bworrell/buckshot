@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import logging
 import functools
-import multiprocessing
+import threading
 
 from buckshot import funcutils
 
@@ -25,7 +25,7 @@ class LockManager(object):
         try:
             mutex = obj.__lock
         except AttributeError:
-            obj.__lock = mutex = multiprocessing.Lock()
+            obj.__lock = mutex = threading.Lock()
         mutex.acquire()
 
     @classmethod
@@ -35,13 +35,13 @@ class LockManager(object):
             obj.__lock.release()
         except AttributeError:
             pass
-        except ValueError as ex:  # lock release failed (maybe not acquired).
+        except Exception as ex:  # lock release failed (maybe not acquired).
             LOG.warning(ex)
 
     @classmethod
     def is_locked(cls, obj):
         try:
-            locked = obj.__lock.acquire(block=False) is False
+            locked = obj.__lock.acquire(False) is False
         except AttributeError:
             locked = False
         else:
