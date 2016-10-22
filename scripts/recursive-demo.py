@@ -22,6 +22,7 @@ def fib(x):
 
 
 # Make a @distribute version of `fib`
+# Immediate recursion (fib() calling fib()) works!
 fastfib = distribute(fib)
 
 
