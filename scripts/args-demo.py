@@ -12,13 +12,13 @@ from buckshot import distribute
 
 
 @distribute
-def sleep_and_square(x, y):
+def sleep_and_square(sleep_seconds, square_num):
     pid = os.getpid()
 
-    print("%s sleeping for %f seconds" % (pid, x))
-    time.sleep(x)
+    print("%s sleeping for %f seconds" % (pid, sleep_seconds))
+    time.sleep(sleep_seconds)
 
-    return x, y
+    return sleep_seconds, (square_num ** 2)
 
 
 def main():
