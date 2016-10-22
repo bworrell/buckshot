@@ -79,6 +79,18 @@ Using ``with distributed(...)``
 All processes are destroyed when inputs are exhausted and/or the context is exited.
 
 
+Features
+~~~~~~~~
+
+Both ``@distribute`` and ``with distributed`` accept arguments which alter the
+behavior of the task distribution:
+
+* ``processes``: The number of worker processes to spawn.
+* ``timeout``: The number of seconds to wait before stopping work on a task
+  and grabbing the next input. This will result in a ``TaskTimeout`` being
+  passed back for that input.
+
+
 Known Issues
 ------------
 
@@ -88,6 +100,8 @@ Known Issues
   for results.
 * This uses ``os.fork()`` under the hood, so there is a risk of rapidly exhausting
   memory.
+* Recursion does not work well with the @distribute decorator and should be
+  avoided.
 
 
 LICENSE
