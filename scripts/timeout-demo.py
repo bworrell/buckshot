@@ -12,15 +12,20 @@ import logging
 from buckshot import distribute
 
 
-@distribute(timeout=1.5)
+TIMEOUT = 1.5
+
+
+@distribute(timeout=TIMEOUT)
 def sleep_and_unicode(x):
-    print("%s sleeping for %f seconds" % (os.getpid(), x))
+    print("Process %s sleeping for %f seconds" % (os.getpid(), x))
     time.sleep(x)
     return unicode(x)
 
 
 def main():
-    values = [1, 5, 1, 5]
+    print("Using timeout value of %s seconds" % TIMEOUT)
+
+    values = [1, 25] * 3
     results = list(sleep_and_unicode(values))
 
     print("\nReceived %s values" % len(results))
