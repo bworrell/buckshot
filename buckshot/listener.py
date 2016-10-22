@@ -25,8 +25,7 @@ class Listener(object):
     id and die.
     """
 
-    def __init__(self, func, registry, input_queue, output_queue, timeout=None):
-        self._registry = registry
+    def __init__(self, func, input_queue, output_queue, timeout=None):
         self._input_queue = input_queue
         self._output_queue = output_queue
         self._worker = threads.isolated(
@@ -46,7 +45,6 @@ class Listener(object):
         if task is signals.StopProcessing:
             self._die()
 
-        self._registry.register(task)
         return task
 
     def _send(self, result):
@@ -66,7 +64,7 @@ class Listener(object):
         try:
             LOG.info("%s starting task %s", os.getpid(), task.id)
             success, result = True, self._worker(*task.args)
-        except errors.ThreadTimeout:
+        except threads.ThreadTimeout:
             LOG.error("Task %s timed out", task.id)
             success, result = False, errors.TaskTimeout(task)
         return success, tasks.Result(task.id, result)
@@ -75,9 +73,9 @@ class Listener(object):
         """Listen for values on the input queue, hand them off to the worker
         function, and send results across the output queue.
         """
-        is_running = True
+        continue_ = True
 
-        while is_running:
+        while continue_:
             try:
                 task = self._recv()
             except Suicide:
@@ -85,5 +83,5 @@ class Listener(object):
             except Exception as ex:
                 retval = errors.SubprocessError(ex)
             else:
-                is_running, retval = self._run_worker(task)
+                continue_, retval = self._run_worker(task)
             self._send(retval)
