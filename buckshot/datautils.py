@@ -15,7 +15,7 @@ def as_tuple(x):
         return (x,)
 
 
-def itertuples(it):
+def iter_tuples(it):
     """Convert each item in the input iterable `it` into a tuple.
 
     Note:

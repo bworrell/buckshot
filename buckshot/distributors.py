@@ -10,7 +10,7 @@ from buckshot import errors
 from buckshot import lockutils
 from buckshot import constants
 from buckshot.listener import Listener
-from buckshot.tasks import TaskIterator, TaskRegistry
+from buckshot.tasks import TaskIterator
 
 
 LOG = logging.getLogger(__name__)
@@ -28,18 +28,14 @@ class ProcessPoolDistributor(object):
 
     def __init__(self, func, num_processes=None, timeout=None):
         self._num_processes = num_processes or constants.CPU_COUNT
-        self._func = func
-        self._timeout = timeout
-
-        self._processes = None
-        self._listener = None
-
-        self._task_queue = None   # worker tasks
-        self._result_queue = None  # worker results
-
-        self._task_registry = None
-        self._tasks_in_progress = None  # tasks started with unreturned results
-        self._task_results_waiting = None
+        self._func = func  # Function to distribute across processes
+        self._timeout = timeout  # Timeout for running tasks.
+        self._processes = None # Map of pid => Process object.
+        self._listener = None  # Listener wrapper around func
+        self._task_queue = None   # Worker tasks
+        self._result_queue = None  # Worker results
+        self._tasks_in_progress = None  # Tasks started with unreturned results
+        self._task_results_waiting = None # Task results that are waiting to be returned.
 
     @property
     def is_started(self):
@@ -56,11 +52,6 @@ class ProcessPoolDistributor(object):
         elif self._tasks_in_progress:
             return False
         return True
-
-    def _is_alive(self, pid):
-        """Return True if the worker process associated with the pid is alive."""
-        process = next(x for x in self._processes if x.pid == pid)
-        return process.is_alive()
 
     def _create_and_register_process(self):
         process = multiprocessing.Process(target=self._listener)
@@ -84,17 +75,14 @@ class ProcessPoolDistributor(object):
             dies the child processes will be killed.
         """
         self._processes = {}
-        self._task_registry = TaskRegistry()
         self._result_queue = multiprocessing.Queue()  # TODO: Should this have a maxsize?
         self._task_queue = multiprocessing.Queue(maxsize=self._num_processes)
-
         self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
         self._task_results_waiting = {}  # task id => Result
 
         self._listener = Listener(
             func=self._func,
             timeout=self._timeout,
-            registry=self._task_registry,
             input_queue=self._task_queue,
             output_queue=self._result_queue
         )
@@ -119,7 +107,6 @@ class ProcessPoolDistributor(object):
 
         LOG.debug("Received result for task: %s", result.task_id)
         self._task_results_waiting[result.task_id] = result
-        self._task_registry.remove(result.task_id)
 
         return result
 
@@ -256,8 +243,5 @@ class ProcessPoolDistributor(object):
         self._processes = None
         self._task_queue = None
         self._result_queue = None
-        self._task_registry = None
         self._tasks_in_progress = None
         self._task_results_waiting = None
-
-
