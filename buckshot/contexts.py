@@ -30,7 +30,7 @@ class distributed(object):
 
     def __init__(self, func, processes=None, ordered=True, timeout=None):
         self._ordered = bool(ordered)
-        self._distrubtor = ProcessPoolDistributor(
+        self._distributor = ProcessPoolDistributor(
             func=func,
             num_processes=processes,
             timeout=timeout
@@ -38,13 +38,13 @@ class distributed(object):
 
     @logutils.tracelog(LOG)
     def __enter__(self):
-        self._distrubtor.start()
+        self._distributor.start()
         return self
 
     @logutils.tracelog(LOG)
     def __exit__(self, ex_type, ex_value, traceback):
         """Kill any spawned subprocesses."""
-        self._distrubtor.stop()
+        self._distributor.stop()
 
     @logutils.tracelog(LOG)
     def __call__(self, iterable):
@@ -59,9 +59,9 @@ class distributed(object):
             Results from the worker function.
         """
         if self._ordered:
-            imap = self._distrubtor.imap
+            imap = self._distributor.imap
         else:
-            imap = self._distrubtor.imap_unordered
+            imap = self._distributor.imap_unordered
 
         for result in imap(iterable):
             yield result
