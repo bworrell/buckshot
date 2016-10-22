@@ -100,7 +100,7 @@ Known Issues
   for results.
 * This uses ``os.fork()`` under the hood, so there is a risk of rapidly exhausting
   memory.
-* Recursion does not work well with the @distribute decorator and should be
+* Recursion does not work well with the ``@distribute`` decorator and should be
   avoided.
 
 
