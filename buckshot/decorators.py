@@ -38,6 +38,13 @@ def distribute(*func, **opts):
     >>> for result in foo(values):    # Map each item in `values` to the original function.
     ...     print result
 
+    Warning:
+        Because this decorator replaces the existing function with a generator,
+        recursion will not work from outside the wrapped function. Only
+        recursive calls within the wrapped function will work.
+
+        That is, foo() -> foo() works; foo() -> bar() -> foo() does not.
+
     Keyword Arguments:
         processes (int): Number of worker processes to use. If None,
             the number of CPUs on the host system will be used.
@@ -59,6 +66,7 @@ def distribute(*func, **opts):
             with contexts.distributed(func, **opts) as distributed_function:
                 for result in distributed_function(iterable):
                     yield result
+
         return inner
 
     if func:
