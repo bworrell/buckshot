@@ -17,18 +17,20 @@ class Suicide(Exception):
     pass
 
 
-class Listener(object):
-    """Listens for input messages, hands it off to the registered handler
-    and sends the handler results back on on the output queue.
+class Worker(object):
+    """Listens for tasks on an input queue, passes the task to the worker
+    function, and returns the results on the output queue.
 
     If we receive a signals.StopProcessing object, we send back our process
     id and die.
+
+    If a task times out, send back a errors.TaskTimeout object.
     """
 
     def __init__(self, func, input_queue, output_queue, timeout=None):
         self._input_queue = input_queue
         self._output_queue = output_queue
-        self._worker = threads.isolated(
+        self._thread_func = threads.isolated(
             target=func,
             daemon=True,
             timeout=timeout
@@ -60,10 +62,10 @@ class Listener(object):
         self._send(signals.Stopped(os.getpid()))
         raise Suicide()
 
-    def _run_worker(self, task):
+    def _process_task(self, task):
         try:
             LOG.info("%s starting task %s", os.getpid(), task.id)
-            success, result = True, self._worker(*task.args)
+            success, result = True, self._thread_func(*task.args)
         except threads.ThreadTimeout:
             LOG.error("Task %s timed out", task.id)
             success, result = False, errors.TaskTimeout(task)
@@ -83,5 +85,6 @@ class Listener(object):
             except Exception as ex:
                 retval = errors.SubprocessError(ex)
             else:
-                continue_, retval = self._run_worker(task)
+                continue_, retval = self._process_task(task)
             self._send(retval)
+
