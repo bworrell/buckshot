@@ -35,34 +35,27 @@ def run_serial(values):
     return [harmonic_sum(x) for x in values]
 
 
-def run_distribute(values, ordered):
-    if ordered:
-        harmonic_sum = ordered_distributed_harmonic_sum
-    else:
-        harmonic_sum = unordered_distributed_harmonic_sum
-    return list(harmonic_sum(values))
-
-
 def main():
     values = range(10)
     random.shuffle(values)
 
     print("Verifying results are the same across functions...", end=" ")
     r1 = run_serial(values)
-    r2 = run_distribute(values, ordered=False)
-    r3 = run_distribute(values, ordered=True)
+    r2 = list(unordered_distributed_harmonic_sum(values))
+    r3 = list(ordered_distributed_harmonic_sum(values))
+
     assert r1 == r3
     assert sorted(r1) == sorted(r2) == sorted(r3)
     print("All good!")
 
     print("Benchmarking...")
-    values = range(1000, 2000, 25)
-    random.shuffle(values)
+    values = range(1000, 2000, 50)
+
 
     benchmark = functools.partial(timeit.repeat, number=1, repeat=3)
     print("serial:                     ", benchmark(lambda: run_serial(values)))
-    print("@distribute(ordered=False): ", benchmark(lambda: run_distribute(values, ordered=False)))
-    print("@distribute(ordered=True):  ", benchmark(lambda: run_distribute(values, ordered=True)))
+    print("@distribute(ordered=False): ", benchmark(lambda: list(ordered_distributed_harmonic_sum(values))))
+    print("@distribute(ordered=True):  ", benchmark(lambda: list(unordered_distributed_harmonic_sum(values))))
 
 
 if __name__ == "__main__":
