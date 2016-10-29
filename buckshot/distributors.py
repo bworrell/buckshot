@@ -3,13 +3,15 @@ from __future__ import unicode_literals
 
 import Queue
 import logging
+import itertools
+import functools
 import collections
 import multiprocessing
 
 from buckshot import errors
 from buckshot import lockutils
 from buckshot import constants
-from buckshot.listener import Listener
+from buckshot.workers import TaskWorker
 from buckshot.tasks import TaskIterator
 
 
@@ -31,7 +33,7 @@ class ProcessPoolDistributor(object):
         self._func = func  # Function to distribute across processes
         self._timeout = timeout  # Timeout for running tasks.
         self._processes = None # Map of pid => Process object.
-        self._listener = None  # Listener wrapper around func
+        self._worker = None  # Worker object.
         self._task_queue = None   # Worker tasks
         self._result_queue = None  # Worker results
         self._tasks_in_progress = None  # Tasks started with unreturned results
@@ -54,7 +56,7 @@ class ProcessPoolDistributor(object):
         return True
 
     def _create_and_register_process(self):
-        process = multiprocessing.Process(target=self._listener)
+        process = multiprocessing.Process(target=self._worker)
         process.daemon = True  # This will die if parent process dies.
         process.start()
 
@@ -80,7 +82,7 @@ class ProcessPoolDistributor(object):
         self._tasks_in_progress = collections.OrderedDict()  # Keep track of the order of tasks sent
         self._task_results_waiting = {}  # task id => Result
 
-        self._listener = Listener(
+        self._worker = TaskWorker(
             func=self._func,
             timeout=self._timeout,
             input_queue=self._task_queue,
@@ -96,19 +98,35 @@ class ProcessPoolDistributor(object):
         self._task_queue.put_nowait(task)
         self._tasks_in_progress[task.id] = task
 
-    def _recv_result(self):
-        result = self._result_queue.get()  # blocks
+    def _flush_result_queue(self):
+        """Empty the task result queue and yield all TaskResult objects.
 
-        if isinstance(result, errors.SubprocessError):
-            raise RuntimeError(unicode(result))  # A subprocess died unexpectedly. Shut it down!
+        Note:
+            The first queue access blocks. All following attempts to
+            retrieve results are non-blocking.
 
-        if isinstance(result.value, errors.TaskTimeout):
-            self._handle_task_timeout(result)
+        Yields:
+            TaskResult objects.
+        """
+        yield self._result_queue.get()  # blocks
 
-        LOG.debug("Received result for task: %s", result.task_id)
-        self._task_results_waiting[result.task_id] = result
+        while True:
+            try:
+                result = self._result_queue.get_nowait()  # non-blocking
+            except Queue.Empty:
+                break
+            yield result
 
-        return result
+    def _recv_results(self):
+        for result in self._flush_result_queue():
+            if isinstance(result, errors.SubprocessError):
+                raise RuntimeError(unicode(result))  # A subprocess died unexpectedly. Shut it down!
+
+            if isinstance(result.value, errors.TaskTimeout):
+                self._handle_task_timeout(result)
+
+            LOG.debug("Received result for task: %s", result.task_id)
+            self._task_results_waiting[result.task_id] = result
 
     def _handle_task_timeout(self, task_timeout):
         """Destroy the process that timed out and create a new one in
@@ -148,6 +166,7 @@ class ProcessPoolDistributor(object):
                 self._send_task(task)
                 task = next(tasks)
             except Queue.Full:
+                LOG.debug("Worker queue full. Waiting for results.")
                 for result in result_getter():  # I wish I had `yield from`  :(
                     yield result
             except StopIteration:
@@ -178,7 +197,7 @@ class ProcessPoolDistributor(object):
 
             This yields results back in the order of their associated tasks.
             """
-            self._recv_result()  # blocks
+            self._recv_results()  # blocks
             tasks = self._tasks_in_progress
             results = self._task_results_waiting
 
@@ -212,12 +231,15 @@ class ProcessPoolDistributor(object):
             """Get a result from the worker output queue and try to yield
             results back to the caller.
 
-            This yields results back in the order of their associated tasks.
+            The order of the results are not guaranteed to align with the
+            order of the input tasks.
             """
-            result = self._recv_result()  # blocks
-            del self._tasks_in_progress[result.task_id]
-            del self._task_results_waiting[result.task_id]
-            yield result.value
+            self._recv_results()  # blocks
+
+            while self._task_results_waiting:
+                task_id, result = self._task_results_waiting.popitem()
+                del self._tasks_in_progress[task_id]
+                yield result.value
 
         for result in self._map_to_workers(iterable, get_results):
             yield result
@@ -231,6 +253,15 @@ class ProcessPoolDistributor(object):
 
         process.terminate()
 
+    def _reset(self):
+        """Unsets all instance variables that are set up in start()."""
+        self._worker = None
+        self._processes = None
+        self._task_queue = None
+        self._result_queue = None
+        self._tasks_in_progress = None
+        self._task_results_waiting = None
+
     @lockutils.unlock_instance
     def stop(self):
         """Kill all child processes and clear results."""
@@ -240,8 +271,4 @@ class ProcessPoolDistributor(object):
         for pid in self._processes.keys():
             self._kill_process(pid)
 
-        self._processes = None
-        self._task_queue = None
-        self._result_queue = None
-        self._tasks_in_progress = None
-        self._task_results_waiting = None
+        self._reset()

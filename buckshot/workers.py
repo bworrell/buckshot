@@ -17,7 +17,7 @@ class Suicide(Exception):
     pass
 
 
-class Worker(object):
+class TaskWorker(object):
     """Listens for tasks on an input queue, passes the task to the worker
     function, and returns the results on the output queue.
 
