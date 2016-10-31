@@ -48,4 +48,3 @@ def isolated(target, daemon=False, timeout=None):
         return result
 
     return inner
-

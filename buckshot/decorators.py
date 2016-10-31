@@ -12,7 +12,7 @@ import logging
 import functools
 
 from buckshot import contexts
-from buckshot import funcutils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -40,10 +40,7 @@ def distribute(*func, **opts):
 
     Warning:
         Because this decorator replaces the existing function with a generator,
-        recursion will not work from outside the wrapped function. Only
-        recursive calls within the wrapped function will work.
-
-        That is, foo() -> foo() works; foo() -> bar() -> foo() does not.
+        recursion will not work!
 
     Keyword Arguments:
         processes (int): Number of worker processes to use. If None,
@@ -57,8 +54,6 @@ def distribute(*func, **opts):
         raise ValueError("Cannot provide positional arguments.")
 
     def wrapper(func):
-        funcutils.patch_recursion(func)  # Make immediate recursion work.
-
         @functools.wraps(func)
         def inner(*args):
             iterable = args[-1]  # Kind of a hack to work with instance methods.

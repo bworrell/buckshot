@@ -3,8 +3,7 @@ from __future__ import unicode_literals
 
 import Queue
 import logging
-import itertools
-import functools
+import threading
 import collections
 import multiprocessing
 
@@ -32,6 +31,7 @@ class ProcessPoolDistributor(object):
         self._num_processes = num_processes or constants.CPU_COUNT
         self._func = func  # Function to distribute across processes
         self._timeout = timeout  # Timeout for running tasks.
+        self._lock = threading.Lock()
         self._processes = None # Map of pid => Process object.
         self._worker = None  # Worker object.
         self._task_queue = None   # Worker tasks
@@ -63,7 +63,7 @@ class ProcessPoolDistributor(object):
         LOG.info("Created new subprocess: %d", process.pid)
         self._processes[process.pid] = process
 
-    @lockutils.lock_instance
+    @lockutils.lock_instance("_lock")
     def start(self):
         """Start the worker processes and return self.
 
@@ -176,7 +176,7 @@ class ProcessPoolDistributor(object):
             for result in result_getter():
                 yield result
 
-    @lockutils.lock_instance
+    @lockutils.lock_instance("_lock")
     def imap(self, iterable):
         """Send each argument tuple in `iterable` to a worker process and
         yield results.
@@ -212,7 +212,7 @@ class ProcessPoolDistributor(object):
         for result in self._map_to_workers(iterable, get_results):
             yield result
 
-    @lockutils.lock_instance
+    @lockutils.lock_instance("_lock")
     def imap_unordered(self, iterable):
         """Send each argument tuple in `iterable` to a worker process and
         yield results.
@@ -262,7 +262,7 @@ class ProcessPoolDistributor(object):
         self._tasks_in_progress = None
         self._task_results_waiting = None
 
-    @lockutils.unlock_instance
+    @lockutils.unlock_instance("_lock")
     def stop(self):
         """Kill all child processes and clear results."""
         if not self.is_started:
